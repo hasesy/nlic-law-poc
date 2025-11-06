@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>NLIC 법령 PoC - 검색 & 변경 요약</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        margin: 20px;
+      }
+      h1 {
+        font-size: 20px;
+        margin-bottom: 16px;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .tab-btn {
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid #ddd;
+        background: #f8f8f8;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .tab-btn.active {
+        background: #2563eb;
+        color: #fff;
+        border-color: #2563eb;
+      }
+
+      .section {
+        display: none;
+      }
+      .section.active {
+        display: block;
+      }
+
+      .search-box {
+        margin-bottom: 16px;
+      }
+      input[type="text"] {
+        padding: 6px 8px;
+        width: 280px;
+      }
+      button {
+        padding: 6px 12px;
+        margin-left: 4px;
+        cursor: pointer;
+      }
+
+      .result-item {
+        border: 1px solid #ddd;
+        padding: 8px 10px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+      }
+      .result-title {
+        font-weight: 600;
+      }
+      .result-meta {
+        font-size: 12px;
+        color: #555;
+        margin-top: 2px;
+      }
+      .empty {
+        color: #777;
+        margin-top: 16px;
+      }
+
+      .changes-layout {
+        display: flex;
+        gap: 16px;
+      }
+      .changes-list {
+        flex: 1;
+      }
+      .changes-detail {
+        flex: 1;
+        border: 1px solid #eee;
+        padding: 10px;
+        border-radius: 6px;
+        min-height: 140px;
+      }
+      .changes-row {
+        border: 1px solid #ddd;
+        padding: 8px 10px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        cursor: pointer;
+      }
+      .changes-row:hover {
+        background: #f7f9ff;
+      }
+      .changes-title {
+        font-weight: 600;
+      }
+      .changes-meta {
+        font-size: 12px;
+        color: #555;
+        margin-top: 2px;
+      }
+      .changes-summary {
+        font-size: 13px;
+        margin-top: 4px;
+      }
+
+      .diff-entry {
+        margin-bottom: 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px dashed #ddd;
+      }
+      .diff-tag {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        margin-right: 4px;
+      }
+      .diff-tag.added {
+        background: #ecfdf3;
+        color: #166534;
+      }
+      .diff-tag.modified {
+        background: #eff6ff;
+        color: #1d4ed8;
+      }
+      .diff-tag.deleted {
+        background: #fef2f2;
+        color: #b91c1c;
+      }
+      .diff-article {
+        font-weight: 600;
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
+      .diff-before,
+      .diff-after {
+        font-size: 13px;
+        white-space: pre-line;
+      }
+      .diff-label {
+        font-size: 11px;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>NLIC 법령 PoC (검색 + 변경 요약)</h1>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-target="search-section">
+        법령 검색
+      </button>
+      <button class="tab-btn" data-target="changes-section">변경 요약</button>
+    </div>
+
+    <!-- 법령 검색 섹션 -->
+    <div id="search-section" class="section active">
+      <div class="search-box">
+        <input
+          id="q"
+          type="text"
+          placeholder="법령명 or 키워드 (예: 화학물질관리법)"
+        />
+        <button onclick="doSearch()">검색</button>
+      </div>
+      <div id="results"></div>
+    </div>
+
+    <!-- 변경 요약 섹션 -->
+    <div id="changes-section" class="section">
+      <div style="margin-bottom: 8px">
+        <label for="since">최근 변경 범위: </label>
+        <select id="since" onchange="loadChanges()">
+          <option value="7">7일</option>
+          <option value="30" selected>30일</option>
+          <option value="90">90일</option>
+        </select>
+      </div>
+
+      <div class="changes-layout">
+        <div class="changes-list">
+          <div id="changes-list"></div>
+        </div>
+        <div class="changes-detail" id="changes-detail">
+          <div class="empty">
+            왼쪽에서 법령을 선택하면 변경 내용을 요약해서 보여줍니다.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // 탭 전환
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll(".tab-btn")
+            .forEach((b) => b.classList.remove("active"));
+          document
+            .querySelectorAll(".section")
+            .forEach((s) => s.classList.remove("active"));
+
+          btn.classList.add("active");
+          const target = btn.getAttribute("data-target");
+          document.getElementById(target).classList.add("active");
+
+          if (target === "changes-section") {
+            loadChanges(); // 처음 들어올 때 자동 로딩
+          }
+        });
+      });
+
+      // 법령 검색
+      async function doSearch() {
+        const qInput = document.getElementById("q");
+        const q = qInput.value.trim();
+        const resultsDiv = document.getElementById("results");
+        resultsDiv.innerHTML = "";
+
+        if (!q) {
+          resultsDiv.innerHTML =
+            "<div class='empty'>검색어를 입력하세요.</div>";
+          qInput.focus();
+          return;
+        }
+
+        resultsDiv.innerHTML = "<div class='empty'>검색 중...</div>";
+
+        try {
+          const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+          if (!res.ok) {
+            resultsDiv.innerHTML =
+              "<div class='empty'>검색 중 오류가 발생했습니다.</div>";
+            return;
+          }
+          const data = await res.json();
+          const items = data.items || [];
+
+          if (!items.length) {
+            resultsDiv.innerHTML =
+              "<div class='empty'>검색 결과가 없습니다.</div>";
+            return;
+          }
+
+          resultsDiv.innerHTML = "";
+          items.forEach((item) => {
+            const div = document.createElement("div");
+            div.className = "result-item";
+            div.innerHTML = `
+            <div class="result-title">${item.title || "(제목 없음)"}</div>
+            <div class="result-meta">
+              구분: ${item.type || "-"} /
+              소관부처: ${item.org || "-"} /
+              시행일자: ${item.enforce_date || "-"}
+            </div>
+          `;
+            resultsDiv.appendChild(div);
+          });
+        } catch (e) {
+          console.error(e);
+          resultsDiv.innerHTML =
+            "<div class='empty'>네트워크 오류가 발생했습니다.</div>";
+        }
+      }
+
+      document.getElementById("q").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          doSearch();
+        }
+      });
+
+      // 변경 요약 목록 가져오기
+      async function loadChanges() {
+        const sinceSelect = document.getElementById("since");
+        const since = sinceSelect.value;
+        const listDiv = document.getElementById("changes-list");
+        const detailDiv = document.getElementById("changes-detail");
+
+        listDiv.innerHTML = "<div class='empty'>불러오는 중...</div>";
+
+        try {
+          const res = await fetch(
+            `/api/changes?since_days=${encodeURIComponent(since)}`
+          );
+          if (!res.ok) {
+            listDiv.innerHTML =
+              "<div class='empty'>데이터를 불러오는 중 오류가 발생했습니다.</div>";
+            return;
+          }
+          const data = await res.json();
+          const items = data.items || [];
+
+          if (!items.length) {
+            listDiv.innerHTML =
+              "<div class='empty'>해당 기간에 변경된 법령이 없습니다.</div>";
+            detailDiv.innerHTML =
+              "<div class='empty'>왼쪽 목록에서 법령을 선택하면 상세 변경 내용을 볼 수 있습니다.</div>";
+            return;
+          }
+
+          listDiv.innerHTML = "";
+          items.forEach((item) => {
+            const div = document.createElement("div");
+            div.className = "changes-row";
+            div.onclick = () => loadDiff(item.law_id, item.title);
+
+            div.innerHTML = `
+            <div class="changes-title">${item.title}</div>
+            <div class="changes-meta">
+              법령ID: ${item.law_id} /
+              버전: ${item.v_from || "-"} → ${item.v_to || "-"}
+            </div>
+            <div class="changes-summary">${item.summary || ""}</div>
+          `;
+            listDiv.appendChild(div);
+          });
+
+          detailDiv.innerHTML =
+            "<div class='empty'>왼쪽 목록에서 법령을 선택하면 상세 변경 내용을 볼 수 있습니다.</div>";
+        } catch (e) {
+          console.error(e);
+          listDiv.innerHTML =
+            "<div class='empty'>네트워크 오류가 발생했습니다.</div>";
+        }
+      }
+
+      // 특정 법령 최신 diff 불러오기
+      async function loadDiff(lawId, title) {
+        const detailDiv = document.getElementById("changes-detail");
+        detailDiv.innerHTML =
+          "<div class='empty'>변경 내용 불러오는 중...</div>";
+
+        try {
+          const res = await fetch(
+            `/api/laws/${encodeURIComponent(lawId)}/diff/latest`
+          );
+          if (!res.ok) {
+            detailDiv.innerHTML =
+              "<div class='empty'>변경 내용을 불러오는 중 오류가 발생했습니다.</div>";
+            return;
+          }
+          const data = await res.json();
+          const changes = data.changes || [];
+
+          if (!changes.length) {
+            detailDiv.innerHTML = `
+            <div class='empty'>
+              '${title}' 에 대한 상세 변경 정보가 없습니다.<br/>
+              (PoC 단계에서는 샘플 데이터만 제공될 수 있습니다.)
+            </div>`;
+            return;
+          }
+
+          let html = `
+          <div style="margin-bottom: 8px;">
+            <strong>${title}</strong><br/>
+            버전: ${data.v_from || "-"} → ${data.v_to || "-"}
+          </div>
+        `;
+
+          changes.forEach((ch) => {
+            const type = ch.change_type || "modified";
+            const tagClass =
+              type === "added"
+                ? "added"
+                : type === "deleted"
+                ? "deleted"
+                : "modified";
+            const tagLabel =
+              type === "added" ? "신설" : type === "deleted" ? "삭제" : "변경";
+
+            html += `
+            <div class="diff-entry">
+              <div class="diff-article">
+                <span class="diff-tag ${tagClass}">${tagLabel}</span>
+                ${ch.article || ""} ${ch.paragraph || ""}
+              </div>
+          `;
+
+            if (ch.before) {
+              html += `
+              <div class="diff-before">
+                <span class="diff-label">변경 전</span><br/>
+                ${ch.before}
+              </div>
+            `;
+            }
+            if (ch.after) {
+              html += `
+              <div class="diff-after">
+                <span class="diff-label">변경 후</span><br/>
+                ${ch.after}
+              </div>
+            `;
+            }
+            html += `</div>`;
+          });
+
+          detailDiv.innerHTML = html;
+        } catch (e) {
+          console.error(e);
+          detailDiv.innerHTML =
+            "<div class='empty'>네트워크 오류가 발생했습니다.</div>";
+        }
+      }
+    </script>
+  </body>
+</html>

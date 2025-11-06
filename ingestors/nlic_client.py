@@ -8,14 +8,16 @@ from settings import settings
 H = {"User-Agent": settings.USER_AGENT}
 
 def _get(path: str, params: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    NLIC_BASE + path 에 GET 요청 보내고 JSON으로 반환.
-    5번까지 지수 백오프(1,2,4,8,16초)로 재시도.
-    """
     url = f"{settings.NLIC_BASE}/{path}"
     for i in range(5):
         try:
+            print(f"[DEBUG] 요청 URL: {url}")
+            print(f"[DEBUG] 요청 파라미터: {params}")
+
             r = requests.get(url, params=params, headers=H, timeout=settings.REQUEST_TIMEOUT)
+            print(f"[DEBUG] status={r.status_code}, content-type={r.headers.get('Content-Type')}")
+            print(f"[DEBUG] 응답 앞 300자:\n{r.text[:300]}\n")
+
             r.raise_for_status()
             return r.json()
         except Exception as e:
