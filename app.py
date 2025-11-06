@@ -1,5 +1,4 @@
 from datetime import date, timedelta
-
 import streamlit as st
 
 from law_api import (
@@ -35,24 +34,12 @@ if "period" not in st.session_state:
     st.session_state["period"] = (today - timedelta(days=7), today)
 
 # =========================
-# Query param handling for card click (?open=<idx>)
-# =========================
-try:
-    qp = st.experimental_get_query_params()
-    if "open" in qp:
-        open_idx_raw = qp.get("open", [None])[0]
-        if open_idx_raw is not None and str(open_idx_raw).isdigit():
-            st.session_state["modal_idx"] = int(open_idx_raw)
-except Exception:
-    pass
-
-# =========================
 # 헤더
 # =========================
 st.title("법령 변경 이력목록")
 
 # =========================
-# 필터 바
+# 필터 바 (Streamlit 기본 카드 스타일)
 # =========================
 period_start, period_end = st.session_state["period"]
 search_btn, start_date, end_date = render_filter_bar(period_start, period_end)
@@ -78,7 +65,7 @@ if search_btn:
 results = st.session_state["search_results"]
 
 # =========================
-# 카드 리스트
+# 카드 리스트 (shadcn-ui 기반)
 # =========================
 render_law_cards(results)
 
@@ -119,9 +106,3 @@ if modal_idx is not None and 0 <= modal_idx < len(results):
             st.session_state["modal_idx"] = None
 
     show_comparison_dialog()
-    # After closing the modal, clear the query param if present
-    try:
-        if st.session_state.get("modal_idx") is None and "open" in st.query_params:
-            del st.query_params["open"]
-    except Exception:
-        pass
