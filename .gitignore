@@ -1,0 +1,45 @@
+# ========================
+# Python 가상환경 / 패키지
+# ========================
+venv/
+venv*/        # venv312 같은 폴더들
+.env/
+.venv/
+
+# ========================
+# Python 캐시/빌드 산출물
+# ========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+*.log
+
+# pytest / mypy / 기타 캐시
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ========================
+# Streamlit
+# ========================
+.streamlit/secrets.toml
+.streamlit/config.toml
+
+# ========================
+# IDE / 에디터 설정
+# ========================
+.vscode/
+.idea/
+*.code-workspace
+
+# ========================
+# OS별 잡파일
+# ========================
+.DS_Store
+Thumbs.db
