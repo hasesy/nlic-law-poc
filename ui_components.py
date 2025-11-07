@@ -18,15 +18,6 @@ main .block-container {
     padding-bottom: 2rem;
 }
 
-/* 상단 필터 박스 */
-.filter-bar {
-    padding: 0.75rem 1rem;
-    border-radius: 12px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    margin-bottom: 0.75rem;
-}
-
 /* 모달 스타일 */
 [data-testid="stDialog"] {
     position: fixed;
@@ -90,6 +81,7 @@ main .block-container {
 div[data-testid="stHorizontalBlock"] > div[data-testid="stVerticalBlock"] {
     margin-bottom: 1rem;
 }
+
 </style>
 """,
         unsafe_allow_html=True,
@@ -98,9 +90,7 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="stVerticalBlock"] {
 
 def render_filter_bar(start_date, end_date):
     """상단 기간 필터 바 (Streamlit 기본 카드 스타일)"""
-    with st.container():
-        st.markdown('<div class="filter-bar">', unsafe_allow_html=True)
-
+    with st.container(border=True):
         c1, c2, c3 = st.columns([1.2, 1.2, 0.8])
 
         with c1:
@@ -118,17 +108,14 @@ def render_filter_bar(start_date, end_date):
                 key="end_date_input",
             )
         with c3:
-            st.write(" ")
-            st.write(" ")
+            st.write("")  # 위쪽 정렬용 여백
             search_btn = st.button("검색", use_container_width=True, key="search_btn")
-
-        st.markdown("</div>", unsafe_allow_html=True)
 
     return search_btn, start, end
 
 
 def render_law_cards(results):
-    """변경된 법령 목록 카드 리스트 (shadcn-ui + badge 포함 버전)"""
+    """변경된 법령 목록 카드 리스트 (Streamlit 기본 컴포넌트 버전)"""
     st.subheader("변경된 법령 목록")
 
     if not results:
@@ -136,41 +123,53 @@ def render_law_cards(results):
         return
 
     for idx, r in enumerate(results):
-        with ui.card(key=f"law_card_{idx}"):
-            # 제목
-            st.markdown(f"### {r['법령명한글']}", unsafe_allow_html=True)
+        # 카드 컨테이너
+        with st.container(border=True):
+            # 1️⃣ 제목 + 버튼 (한 줄)
+            c1, c2 = st.columns([7, 1])
+            with c1:
+                st.markdown(
+                    f"<div style='font-weight:600;font-size:1rem;'>{r['법령명한글']}</div>",
+                    unsafe_allow_html=True,
+                )
+            with c2:
+                if st.button("신·구조문 비교", key=f"compare_btn_{idx}", use_container_width=True):
+                    st.session_state["modal_idx"] = idx
 
-            # 뱃지 (법령 구분 / 제·개정 구분 / 소관부처)
-            ui.badges(
-                badge_list=[
-                    (r["법령구분명"], "outline"),
-                    (r["제개정구분명"], "secondary"),
-                    (r["소관부처명"], "default"),
-                ],
-                class_name="mt-2",
-                key=f"law_badges_{idx}",
-            )
-
-            # 날짜/공포번호
+            # 2️⃣ 뱃지 줄
             st.markdown(
                 f"""
-                <div style='font-size: 0.85rem; color: #64748b; margin-top: 0.35rem;'>
-                  공포일자: {r['공포일자']} / 시행일자: {r['시행일자']}<br>
-                  공포번호: {r['공포번호']} / 변경일: {r['변경일']}
+                <div style='margin-top:0.25rem;'>
+                    <span style='background:#f1f5f9;color:#0f172a;
+                        padding:2px 8px;border-radius:8px;
+                        font-size:0.8rem;margin-right:4px;'>
+                        {r["법령구분명"]}
+                    </span>
+                    <span style='background:#dbeafe;color:#1e3a8a;
+                        padding:2px 8px;border-radius:8px;
+                        font-size:0.8rem;margin-right:4px;'>
+                        {r["제개정구분명"]}
+                    </span>
+                    <span style='background:#fef3c7;color:#92400e;
+                        padding:2px 8px;border-radius:8px;
+                        font-size:0.8rem;margin-right:4px;'>
+                        {r["소관부처명"]}
+                    </span>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
 
-            # 버튼
-            clicked = ui.button(
-                text="신·구조문 비교 보기",
-                key=f"law_card_btn_{idx}",
-                variant="outline",
+            # 3️⃣ 날짜 / 공포번호 정보
+            st.markdown(
+                f"""
+                <div style='margin-top:0.5rem;font-size:0.85rem;color:#64748b;'>
+                    공포일자: {r['공포일자']} / 시행일자: {r['시행일자']}<br>
+                    공포번호: {r['공포번호']} / 변경일: {r['변경일']}
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-
-            if clicked:
-                st.session_state["modal_idx"] = idx
 
 
 def render_comparison_modal(selected, old_map, new_map):
