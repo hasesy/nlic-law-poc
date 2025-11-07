@@ -31,7 +31,7 @@ if "modal_idx" not in st.session_state:
     st.session_state["modal_idx"] = None
 if "period" not in st.session_state:
     today = date.today()
-    st.session_state["period"] = (today - timedelta(days=7), today)
+    st.session_state["period"] = (today - timedelta(days=7), today - timedelta(days=7))
 
 # =========================
 # 헤더

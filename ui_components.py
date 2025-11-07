@@ -38,7 +38,7 @@ main .block-container {
 [data-testid="stDialog"] > div > div {
     width: 80vw !important;
     max-width: 80vw !important;
-    max-height: 80vh !important;
+    max-height: 90vh !important;
     background: #ffffff;
     border-radius: 12px;
     padding: 1.5rem;
@@ -48,12 +48,12 @@ main .block-container {
 
 /* 모달 안 스크롤 영역 */
 .article-scroll {
-    max-height: calc(80vh - 180px);
+    max-height: calc(80vh - 300px);  /* 180 → 260 같이 더 줄이기 */
     overflow-y: auto;
     padding-right: 0.5rem;
 }
 
-/* 신·구 조문 영역 */
+/* 신·구 조문 영역 공통 스타일 */
 .law-article {
     font-size: 0.9rem;
     line-height: 1.4;
@@ -75,6 +75,20 @@ main .block-container {
 .law-article.old-article p + p::before,
 .law-article.new-article p + p::before {
     content: " ";
+}
+
+/* 신·구 조문 두 컬럼 레이아웃 */
+.law-columns {
+    display: flex;
+    gap: 1rem;
+}
+.law-col {
+    flex: 1;
+    min-width: 0;
+}
+.law-col-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
 }
 
 /* 카드 간 여백 */
@@ -207,20 +221,24 @@ def render_comparison_modal(selected, old_map, new_map):
         return
 
     st.markdown("#### 🔀 변경된 조문")
-    st.markdown('<div class="article-scroll">', unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("**개정 전**")
-        st.markdown(
-            f'<div class="law-article old-article">{"".join(old_blocks)}</div>',
-            unsafe_allow_html=True,
-        )
-    with col2:
-        st.markdown("**개정 후**")
-        st.markdown(
-            f'<div class="law-article new-article">{"".join(new_blocks)}</div>',
-            unsafe_allow_html=True,
-        )
+    scroll_html = f"""
+    <div class="article-scroll">
+        <div class="law-columns">
+            <div class="law-col">
+                <div class="law-col-title">개정 전</div>
+                <div class="law-article old-article">
+                    {''.join(old_blocks)}
+                </div>
+            </div>
+            <div class="law-col">
+                <div class="law-col-title">개정 후</div>
+                <div class="law-article new-article">
+                    {''.join(new_blocks)}
+                </div>
+            </div>
+        </div>
+    </div>
+    """
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown(scroll_html, unsafe_allow_html=True)
